@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   idNumber: String,
   bio: String,
   profession: String,
+  userType: { type: String, enum: ['Property Agent', 'Individual'], default: 'Individual' }, 
   customProfession: String,
   habits: {
     smoking: String,

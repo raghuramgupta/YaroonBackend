@@ -1,8 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const Listing = require('../models/Listing');
+// routes/listings.js
+const express  = require('express');
+const router   = express.Router();
+const Listing  = require('../models/Listing');
 
-// POST /api/listings/create - Create a new listing
+/*──────────────────────────  CREATE  ──────────────────────────*/
 router.post('/create', async (req, res) => {
   try {
     const {
@@ -21,10 +22,17 @@ router.post('/create', async (req, res) => {
       securityDeposit,
       amenities,
       cookingType,
-      mapLocation
+      mapLocation,
+      city,
+      state,
+      country,
+      pinCode,
+      accommodationType,   // <-- added
+      title                // <-- added
     } = req.body;
 
-    const parsedAmenities = typeof amenities === 'string' ? JSON.parse(amenities) : amenities;
+    const parsedAmenities =
+      typeof amenities === 'string' ? JSON.parse(amenities) : amenities;
 
     const newListing = new Listing({
       userKey,
@@ -42,7 +50,9 @@ router.post('/create', async (req, res) => {
       securityDeposit,
       amenities: parsedAmenities,
       cookingType,
-      mapLocation
+      mapLocation,
+      accommodationType,   // <-- added
+      title                // <-- added
     });
 
     await newListing.save();
@@ -53,22 +63,22 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// GET /api/listings - Get all listings
+/*──────────────────────────  READ ALL  ────────────────────────*/
 router.get('/', async (req, res) => {
   try {
     const listings = await Listing.find();
     res.json(listings);
   } catch (error) {
-    console.error("Failed to fetch listings:", error);
+    console.error('Failed to fetch listings:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /api/listings/user/:userKey - Get listings by user
+/*──────────────────────────  READ BY USER  ────────────────────*/
 router.get('/user/:userKey', async (req, res) => {
   try {
-    const decodedEmail = decodeURIComponent(req.params.userKey);
-    const listings = await Listing.find({ userKey: decodedEmail });
+    const decoded = decodeURIComponent(req.params.userKey);
+    const listings = await Listing.find({ userKey: decoded });
     res.status(200).json(listings);
   } catch (err) {
     console.error('Error fetching listings for user:', err);
@@ -76,21 +86,56 @@ router.get('/user/:userKey', async (req, res) => {
   }
 });
 
-// GET /api/listings/:id - Get a single listing by ID
-router.get('/:id', async (req, res) => {
+/*──────────────────────────  STATS ENDPOINT  ──────────────────
+  NOTE: placed BEFORE '/:id' so it isn’t swallowed by that route */
+router.get('/stats/:userKey', async (req, res) => {
   try {
-    const listing = await Listing.findById(req.params.id);
-    if (!listing) {
-      return res.status(404).json({ message: 'Listing not found' });
-    }
-    res.status(200).json(listing);
+    const listings = await Listing.find({ userKey: req.params.userKey });
+
+    //  ⬇⬇ include locality and propertyStructure for the new charts
+    const stats = listings.map(l => ({
+      _id:               l._id,
+      propertyAddress:   l.propertyAddress,
+      locality:          l.locality,          // <-- NEW
+      propertyStructure: l.propertyStructure, // <-- NEW
+      viewsLog:          l.viewsLog || []
+    }));
+
+    res.json(stats);
   } catch (err) {
-    console.error('Error fetching listing:', err);
+    console.error('Error building stats:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// PUT /api/listings/:listingId - Update a listing
+/*──────────────────────────  READ ONE & INCREMENT VIEWS  ─────*/
+
+router.get('/:id', async (req, res) => {
+  const viewer = req.query.viewer || null;
+
+  const update = {
+    $inc: { viewsCount: 1 },
+    $push: {
+      viewsLog: {
+        date: new Date(),
+        count: 1,
+        viewer // ✅ include viewer identity
+      }
+    }
+  };
+
+  try {
+    const updated = await Listing.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Listing not found' });
+    res.status(200).json(updated);
+  } catch (err) {
+    console.error('Error fetching/updating listing:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+/*──────────────────────────  UPDATE  ──────────────────────────*/
 router.put('/:listingId', async (req, res) => {
   try {
     const updated = await Listing.findByIdAndUpdate(
@@ -108,7 +153,7 @@ router.put('/:listingId', async (req, res) => {
   }
 });
 
-// DELETE /api/listings/:id - Delete a listing
+/*──────────────────────────  DELETE  ──────────────────────────*/
 router.delete('/:id', async (req, res) => {
   try {
     const result = await Listing.findByIdAndDelete(req.params.id);

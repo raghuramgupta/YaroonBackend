@@ -1,27 +1,71 @@
+// models/Listing.js
 const mongoose = require('mongoose');
 
-const listingSchema = new mongoose.Schema({
-  userKey: String,
-  propertyAddress: String,
-  locality: String,
-  propertyStructure: String,
-  roomType: String,
-  washroomType: String,
-  parkingType: String,
-  roomSize: Number,
-  apartmentSize: Number,
-  rent: Number,
-  availableFrom: String,
-  openDate: String,
-  securityDeposit: String,
-  amenities: {
-    TV: Boolean,
-    Fridge: Boolean,
-    WashingMachine: Boolean,
-    kitchen: Boolean
-  },
-  cookingType: String,
-  mapLocation: String
-});
+const ListingSchema = new mongoose.Schema(
+  {
+    /* ───────── BASIC INFO ───────── */
+    title:              { type: String, required: true },
+    accommodationType:  { type: String, required: true }, // “Room”, “Whole property” …
+    description:        { type: String },
 
-module.exports = mongoose.model('Listing', listingSchema);
+    /* ───────── ADDRESS / LOCATION ───────── */
+    propertyAddress: { type: String, required: true },
+    city:    String,
+    state:   String,
+    country: String,
+    locality:String,
+    pinCode:String,
+    coordinates: {
+      lat: Number,
+      lng: Number
+    },
+    propertyStructure: String, // Standalone apartment / building / Gated community
+    roomType:          String, // 1BHK / 2BHK / 3BHK / Studio
+    washroomType:      String, // Attached / Private / Sharing
+    parkingType:       String, // Car parking / Bike parking / None
+    roomSize:          Number, // sq ft
+    apartmentSize:     Number, // sq ft
+    cookingType:       String, //cooking type 
+    /* ───────── PRICING / DATES ───────── */
+    rent:          { type: Number, required: true },
+    deposit:       Number,
+    availableFrom: Date,
+    openDate:      Date, // open‑house date/time
+    securityDepositOption: String,
+    /* ───────── MEDIA ───────── */
+    images: [String],  // array of image URLs
+    videos: [String],
+    customSecurityDeposit:  String,
+    /* ───────── AMENITIES / FILTERS ───────── */
+    professionAllowed: [String],
+    foodOptions:       [String],
+    parking:           [String],
+    languagesSpoken:   [String],
+    amenities: {
+      TV:             { type: Boolean, default: false },
+      Fridge:         { type: Boolean, default: false },
+      WashingMachine: { type: Boolean, default: false },
+      kitchen:        { type: Boolean, default: false }
+      // add more toggles here when you introduce new ones
+    },
+    /* ───────── OWNER / USER ───────── */
+    userKey: { type: String, required: true }, // the ad owner’s key / auth ID
+
+    /* ───────── VIEW‑TRACKING ─────────
+       Each time a listing is fetched you should
+       1) increment viewsCount
+       2) push { date: now, viewer: <viewerKey> }
+       The viewer key lets us exclude the owner later.
+    */
+    viewsCount: { type: Number, default: 0 },
+    viewsLog: [
+      {
+        date:   { type: Date,   required: true },
+        viewer: { type: String }              // userKey (or “anonymous”)
+      }
+    ]
+  },
+  { timestamps: true } // createdAt & updatedAt
+);
+
+module.exports = mongoose.model('Listing', ListingSchema);
