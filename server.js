@@ -3,6 +3,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 dotenv.config(); // Load .env variables
+const path = require('path');
 
 // Import routes
 const listingsRouter = require('./routes/listings');
@@ -21,6 +22,9 @@ app.use(cors({
   origin: 'http://localhost:3000', // Or '*' to allow all origins (not recommended for production)
   credentials: true
 }));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,

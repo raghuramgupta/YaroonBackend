@@ -50,7 +50,7 @@ const ListingSchema = new mongoose.Schema(
     },
     /* ───────── OWNER / USER ───────── */
     userKey: { type: String, required: true }, // the ad owner’s key / auth ID
-
+    userType: String,
     /* ───────── VIEW‑TRACKING ─────────
        Each time a listing is fetched you should
        1) increment viewsCount

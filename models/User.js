@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   location: String,
   idType: String,
   idNumber: String,
-  bio: String,
+  bio: String,fullName:String,
   profession: String,
   userType: { type: String, enum: ['Property Agent', 'Individual'], default: 'Individual' }, 
   customProfession: String,
