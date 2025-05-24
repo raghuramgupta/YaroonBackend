@@ -7,7 +7,7 @@ const Listing  = require('../models/Listing');
 router.post('/create', async (req, res) => {
   try {
     const {
-      userKey,
+      userKey,userType,userinterests,gender,languages,foodchoices,
       propertyAddress,
       locality,
       propertyStructure,
@@ -19,7 +19,7 @@ router.post('/create', async (req, res) => {
       rent,
       availableFrom,
       openDate,
-      securityDeposit,
+      securityDepositOption,
       amenities,
       cookingType,
       mapLocation,
@@ -35,7 +35,7 @@ router.post('/create', async (req, res) => {
       typeof amenities === 'string' ? JSON.parse(amenities) : amenities;
 
     const newListing = new Listing({
-      userKey,
+      userKey,userType,userinterests,gender,languages,foodchoices,
       propertyAddress,
       locality,
       propertyStructure,
@@ -46,8 +46,11 @@ router.post('/create', async (req, res) => {
       apartmentSize,
       rent,
       availableFrom,
-      openDate,
-      securityDeposit,
+      openDate,city,
+      state,
+      country,
+      pinCode,
+      securityDepositOption,
       amenities: parsedAmenities,
       cookingType,
       mapLocation,

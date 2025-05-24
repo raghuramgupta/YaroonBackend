@@ -10,7 +10,7 @@ const ListingSchema = new mongoose.Schema(
 
     /* ───────── ADDRESS / LOCATION ───────── */
     propertyAddress: { type: String, required: true },
-    city:    String,
+    city:    String,foodchoices:String,
     state:   String,
     country: String,
     locality:String,
@@ -41,6 +41,7 @@ const ListingSchema = new mongoose.Schema(
     foodOptions:       [String],
     parking:           [String],
     languagesSpoken:   [String],
+    userinterests:String,gender:String,languages:String,foodOptions:String,
     amenities: {
       TV:             { type: Boolean, default: false },
       Fridge:         { type: Boolean, default: false },
