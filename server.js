@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 dotenv.config(); // Load .env variables
 const path = require('path');
+const favoritesRouter = require('./routes/favorites');
 
 // Import routes
 const listingsRouter = require('./routes/listings');
@@ -24,7 +25,7 @@ app.use(cors({
 }));
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/api/favorites', favoritesRouter);
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
