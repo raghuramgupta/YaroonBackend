@@ -20,7 +20,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: 'http://localhost:3000', // Or '*' to allow all origins (not recommended for production)
+  origin: '*', // Or '*' to allow all origins (not recommended for production)
   credentials: true
 }));
 
