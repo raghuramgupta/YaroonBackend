@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 dotenv.config(); // Load .env variables
 const path = require('path');
 const favoritesRouter = require('./routes/favorites');
-
+const supportTicketRoutes = require('./routes/supportTicket'); // Adjust path as needed
 // Import routes
 const listingsRouter = require('./routes/listings');
 const userRoutes = require('./routes/users');
@@ -23,7 +23,7 @@ app.use(cors({
   origin: '*', // Or '*' to allow all origins (not recommended for production)
   credentials: true
 }));
-
+app.use('/api/support', supportTicketRoutes); // Support tickets routes
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/favorites', favoritesRouter);
 // MongoDB connection
