@@ -33,7 +33,58 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Add this to your routes/listings.js or create a new messages.js route file
+router.get('/messages/stats/:userKey', async (req, res) => {
+  try {
+    // First get all listings for this user
+    const listings = await Listing.find({ userKey: req.params.userKey });
+    
+    // Then get message counts for each property
+    const messagesPerProperty = await Message.aggregate([
+      {
+        $match: {
+          propertyId: { $in: listings.map(l => l._id) }
+        }
+      },
+      {
+        $group: {
+          _id: '$propertyId',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'listings',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'property'
+        }
+      },
+      {
+        $unwind: '$property'
+      },
+      {
+        $project: {
+          propertyId: '$_id',
+          propertyName: '$property.propertyAddress',
+          count: 1,
+          _id: 0
+        }
+      }
+    ]);
 
+    // Get total message count
+    const totalMessages = messagesPerProperty.reduce((sum, item) => sum + item.count, 0);
+
+    res.json({
+      totalMessages,
+      messagesPerProperty
+    });
+  } catch (err) {
+    console.error('Error fetching message stats:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 // GET /api/messages/received/:userId - Messages received by user
 router.get('/received/:userId', async (req, res) => {
   const { userId } = req.params;
