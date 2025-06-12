@@ -25,6 +25,7 @@ app.use(cors({
 }));
 app.use('/api/support', supportTicketRoutes); // Support tickets routes
 app.use('/uploads', express.static('uploads'));
+
 app.use('/api/favorites', favoritesRouter);
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI, {
