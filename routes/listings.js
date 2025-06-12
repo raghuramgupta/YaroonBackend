@@ -1,13 +1,21 @@
 // routes/listings.js
-const express  = require('express');
-const router   = express.Router();
-const Listing  = require('../models/Listing');
+const express = require('express');
+const router = express.Router();
+const Listing = require('../models/Listing');
+const upload = require('./multerConfig'); // import multer config
+const path = require('path');
 
 /*──────────────────────────  CREATE  ──────────────────────────*/
-router.post('/create', async (req, res) => {
+router.post('/create', upload.array('media', 10), async (req, res) => {
   try {
     const {
-      userKey,userType,userinterests,gender,languages,foodchoices,pets,
+      userKey,
+      userType,
+      userinterests,
+      gender,
+      languages,
+      foodchoices,
+      pets,
       propertyAddress,
       locality,
       propertyStructure,
@@ -27,15 +35,43 @@ router.post('/create', async (req, res) => {
       state,
       country,
       pinCode,
-      accommodationType,   // <-- added
-      title                // <-- added
+      accommodationType,
+      title,
+      description
     } = req.body;
 
-    const parsedAmenities =
-      typeof amenities === 'string' ? JSON.parse(amenities) : amenities;
+    let parsedAmenities = {};
+    if (typeof amenities === 'string') {
+      try {
+        parsedAmenities = JSON.parse(amenities);
+      } catch (e) {
+        parsedAmenities = {};
+      }
+    }
+
+    // Separate images and videos
+    const images = [];
+    const videos = [];
+
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (['.png', '.jpg', '.jpeg', '.gif'].includes(ext)) {
+          images.push(`/${file.filename}`);
+        } else if (['.mp4', '.webm', '.ogg', '.mov'].includes(ext)) {
+          videos.push(`/${file.filename}`);
+        }
+      });
+    }
 
     const newListing = new Listing({
-      userKey,userType,userinterests,gender,languages,foodchoices,pets,
+      userKey,
+      userType,
+      userinterests,
+      gender,
+      languages,
+      foodchoices,
+      pets,
       propertyAddress,
       locality,
       propertyStructure,
@@ -46,19 +82,24 @@ router.post('/create', async (req, res) => {
       apartmentSize,
       rent,
       availableFrom,
-      openDate,city,
-      state,
-      country,
-      pinCode,
+      openDate,
       securityDepositOption,
       amenities: parsedAmenities,
       cookingType,
       mapLocation,
-      accommodationType,   // <-- added
-      title                // <-- added
+      city,
+      state,
+      country,
+      pinCode,
+      accommodationType,
+      title,
+      description,
+      images,
+      videos
     });
 
     await newListing.save();
+
     res.status(201).json({ message: 'Listing created successfully', listing: newListing });
   } catch (error) {
     console.error('Error creating listing:', error);
@@ -89,19 +130,17 @@ router.get('/user/:userKey', async (req, res) => {
   }
 });
 
-/*──────────────────────────  STATS ENDPOINT  ──────────────────
-  NOTE: placed BEFORE '/:id' so it isn’t swallowed by that route */
+/*──────────────────────────  STATS ENDPOINT  ──────────────────*/
 router.get('/stats/:userKey', async (req, res) => {
   try {
     const listings = await Listing.find({ userKey: req.params.userKey });
 
-    //  ⬇⬇ include locality and propertyStructure for the new charts
     const stats = listings.map(l => ({
-      _id:               l._id,
-      propertyAddress:   l.propertyAddress,
-      locality:          l.locality,          // <-- NEW
-      propertyStructure: l.propertyStructure, // <-- NEW
-      viewsLog:          l.viewsLog || []
+      _id: l._id,
+      propertyAddress: l.propertyAddress,
+      locality: l.locality,
+      propertyStructure: l.propertyStructure,
+      viewsLog: l.viewsLog || []
     }));
 
     res.json(stats);
@@ -111,8 +150,7 @@ router.get('/stats/:userKey', async (req, res) => {
   }
 });
 
-/*──────────────────────────  READ ONE & INCREMENT VIEWS  ─────*/
-
+/*──────────────────────────  READ ONE & INCREMENT VIEWS  ─────*/
 router.get('/:id', async (req, res) => {
   const viewer = req.query.viewer || null;
 
@@ -121,8 +159,7 @@ router.get('/:id', async (req, res) => {
     $push: {
       viewsLog: {
         date: new Date(),
-        count: 1,
-        viewer // ✅ include viewer identity
+        viewer
       }
     }
   };
@@ -136,7 +173,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 
 /*──────────────────────────  UPDATE  ──────────────────────────*/
 router.put('/:listingId', async (req, res) => {
