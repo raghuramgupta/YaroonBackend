@@ -6,7 +6,10 @@ const upload = require('./multerConfig'); // import multer config
 const path = require('path');
 
 /*──────────────────────────  CREATE  ──────────────────────────*/
-router.post('/create', upload.array('media', 10), async (req, res) => {
+router.post('/create', upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'videos', maxCount: 5 }
+]), async (req, res) => {
   try {
     const {
       userKey,
@@ -57,9 +60,9 @@ router.post('/create', upload.array('media', 10), async (req, res) => {
       req.files.forEach(file => {
         const ext = path.extname(file.originalname).toLowerCase();
         if (['.png', '.jpg', '.jpeg', '.gif'].includes(ext)) {
-          images.push(`/${file.filename}`);
+          images.push(`/uploads/${file.filename}`);
         } else if (['.mp4', '.webm', '.ogg', '.mov'].includes(ext)) {
-          videos.push(`/${file.filename}`);
+          videos.push(`uploads/${file.filename}`);
         }
       });
     }
