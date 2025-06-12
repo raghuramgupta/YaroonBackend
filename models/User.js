@@ -24,7 +24,11 @@ const userSchema = new mongoose.Schema({
     pets: String
   },
   interests: String,
-  traits: String
+  traits: String,
+  // Email Verification Fields
+  isVerified: { type: Boolean, default: false },
+  verificationToken: String,
+  verificationTokenExpiresAt: Date
 });
 
 const User = mongoose.model('User', userSchema);
