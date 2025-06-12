@@ -41,7 +41,7 @@ const ListingSchema = new mongoose.Schema(
     foodOptions:       [String],
     parking:           [String],
     languagesSpoken:   [String],
-    userinterests:String,gender:String,languages:String,foodOptions:String,
+    userinterests:String,gender:String,languages:String,foodOptions:String,pets:String,
     amenities: {
       TV:             { type: Boolean, default: false },
       Fridge:         { type: Boolean, default: false },
