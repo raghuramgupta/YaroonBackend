@@ -190,21 +190,59 @@ router.put('/:listingId', upload.fields([
     const body = req.body;
 
     let parsedAmenities = {};
-    try {
-      parsedAmenities = JSON.parse(body.amenities);
-    } catch (e) {
-      parsedAmenities = body.amenities || {};
+    if (typeof amenities === 'string') {
+      try {
+        parsedAmenities = JSON.parse(amenities);
+      } catch (e) {
+        parsedAmenities = {};
+      }
     }
 
+    // Build updateData with user input
     const updateData = {
-      ...body,
-      amenities: parsedAmenities
+      userKey: body.userKey,
+      userType: body.userType,
+      userinterests: body.userinterests,
+      gender: body.gender,
+      languages: body.languages,
+      foodchoices: body.foodchoices,
+      pets: body.pets,
+      propertyAddress: body.propertyAddress,
+      locality: body.locality,
+      propertyStructure: body.propertyStructure,
+      roomType: body.roomType,
+      washroomType: body.washroomType,
+      parkingType: body.parkingType,
+      roomSize: body.roomSize,
+      apartmentSize: body.apartmentSize,
+      rent: body.rent,
+      securityDepositOption: body.securityDepositOption,
+      amenities: parsedAmenities,
+      cookingType: body.cookingType,
+      mapLocation: body.mapLocation,
+      city: body.city,
+      state: body.state,
+      country: body.country,
+      pinCode: body.pinCode,
+      accommodationType: body.accommodationType,
+      title: body.title,
+      description: body.description
     };
 
-    delete updateData.updatedImages;
-    delete updateData.updatedVideos;
+    // Handle date fields safely
+    if (body.availableFrom && body.availableFrom !== 'Invalid date' && body.availableFrom !== 'null') {
+      updateData.availableFrom = new Date(body.availableFrom);
+    } else {
+      updateData.availableFrom = undefined;
+    }
 
-    // Handle uploads
+    if (body.openDate && body.openDate !== 'Invalid date' && body.openDate !== 'null') {
+      updateData.openDate = new Date(body.openDate);
+    } else {
+      updateData.openDate = undefined;
+    }
+
+    // Extract new image/video paths from uploads
     const newImages = [];
     const newVideos = [];
 
@@ -222,16 +260,42 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Use filtered lists from frontend
-    const oldImages = req.body.updatedImages ? JSON.parse(req.body.updatedImages) : [];
-    const oldVideos = req.body.updatedVideos ? JSON.parse(req.body.updatedVideos) : [];
+    // Use updated media lists sent from frontend
+    let finalImages = [];
+    let finalVideos = [];
 
-    updateData.images = [...oldImages, ...newImages];
-    updateData.videos = [...oldVideos, ...newVideos];
+    if (newImages.length > 0) {
+      finalImages = [...newImages];
+    }
 
-    // Clean undefined or empty fields
+    if (body.updatedImages) {
+      try {
+        const oldImages = JSON.parse(body.updatedImages);
+        finalImages = [...oldImages, ...finalImages];
+      } catch (e) {
+        console.error('Invalid updatedImages:', e);
+      }
+    }
+
+    if (newVideos.length > 0) {
+      finalVideos = [...newVideos];
+    }
+
+    if (body.updatedVideos) {
+      try {
+        const oldVideos = JSON.parse(body.updatedVideos);
+        finalVideos = [...oldVideos, ...finalVideos];
+      } catch (e) {
+        console.error('Invalid updatedVideos:', e);
+      }
+    }
+
+    updateData.images = finalImages.length > 0 ? finalImages : undefined;
+    updateData.videos = finalVideos.length > 0 ? finalVideos : undefined;
+
+    // Remove any undefined/null fields to prevent casting errors
     Object.keys(updateData).forEach(key => {
-      if (!updateData[key] || updateData[key] === '') {
+      if (updateData[key] === undefined || updateData[key] === '') {
         delete updateData[key];
       }
     });
