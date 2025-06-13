@@ -57,18 +57,16 @@ router.post('/create', upload.fields([
     const images = [];
     const videos = [];
 
-    if (req.files) {
-      if (req.files.images) {
-        req.files.images.forEach(file => {
-          images.push(`/uploads/${file.filename}`);
-        });
-      }
+    if (req.files?.images) {
+      req.files.images.forEach(file => {
+        newImages.push(`/uploads/${file.filename}`);
+      });
+    }
 
-      if (req.files.videos) {
-        req.files.videos.forEach(file => {
-          videos.push(`/uploads/${file.filename}`);
-        });
-      }
+    if (req.files?.videos) {
+      req.files.videos.forEach(file => {
+        newVideos.push(`/uploads/${file.filename}`);
+      });
     }
 
     const newListing = new Listing({
@@ -191,92 +189,54 @@ router.put('/:listingId', upload.fields([
   try {
     const body = req.body;
 
-    // Safely parse amenities
     let parsedAmenities = {};
-    if (typeof body.amenities === 'string') {
-      try {
-        parsedAmenities = JSON.parse(body.amenities);
-      } catch (e) {
-        parsedAmenities = {};
-      }
+    try {
+      parsedAmenities = JSON.parse(body.amenities);
+    } catch (e) {
+      parsedAmenities = body.amenities || {};
     }
 
-    // Build updateData without viewsLog
     const updateData = {
-      userKey: body.userKey,
-      userType: body.userType,
-      userinterests: body.userinterests,
-      gender: body.gender,
-      languages: body.languages,
-      foodchoices: body.foodchoices,
-      pets: body.pets,
-      propertyAddress: body.propertyAddress,
-      locality: body.locality,
-      propertyStructure: body.propertyStructure,
-      roomType: body.roomType,
-      washroomType: body.washroomType,
-      parkingType: body.parkingType,
-      roomSize: body.roomSize,
-      apartmentSize: body.apartmentSize,
-      rent: body.rent,
-      securityDepositOption: body.securityDepositOption,
-      amenities: parsedAmenities,
-      cookingType: body.cookingType,
-      mapLocation: body.mapLocation,
-      city: body.city,
-      state: body.state,
-      country: body.country,
-      pinCode: body.pinCode,
-      accommodationType: body.accommodationType,
-      title: body.title,
-      description: body.description
+      ...body,
+      amenities: parsedAmenities
     };
 
-    // Handle date fields safely
-    if (body.availableFrom && body.availableFrom !== 'Invalid date' && body.availableFrom !== 'null') {
-      updateData.availableFrom = new Date(body.availableFrom);
-    } else {
-      updateData.availableFrom = undefined;
-    }
+    delete updateData.updatedImages;
+    delete updateData.updatedVideos;
 
-    if (body.openDate && body.openDate !== 'Invalid date' && body.openDate !== 'null') {
-      updateData.openDate = new Date(body.openDate);
-    } else {
-      updateData.openDate = undefined;
-    }
-
-    // Process image/video uploads
-    const finalImages = body.updatedImages ? JSON.parse(body.updatedImages) : [];
-    const finalVideos = body.updatedVideos ? JSON.parse(body.updatedVideos) : [];
+    // Handle uploads
+    const newImages = [];
+    const newVideos = [];
 
     if (req.files) {
       if (req.files.images) {
         req.files.images.forEach(file => {
-          finalImages.push(`/uploads/${file.filename}`);
+          newImages.push(`/uploads/${file.filename}`);
         });
       }
 
       if (req.files.videos) {
         req.files.videos.forEach(file => {
-          finalVideos.push(`/uploads/${file.filename}`);
+          newVideos.push(`/uploads/${file.filename}`);
         });
       }
     }
 
-    updateData.images = finalImages.length > 0 ? finalImages : undefined;
-    updateData.videos = finalVideos.length > 0 ? finalVideos : undefined;
+    // Use filtered lists from frontend
+    const oldImages = req.body.updatedImages ? JSON.parse(req.body.updatedImages) : [];
+    const oldVideos = req.body.updatedVideos ? JSON.parse(req.body.updatedVideos) : [];
 
-    // Remove any undefined/null fields
+    updateData.images = [...oldImages, ...newImages];
+    updateData.videos = [...oldVideos, ...newVideos];
+
+    // Clean undefined or empty fields
     Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined || updateData[key] === '') {
+      if (!updateData[key] || updateData[key] === '') {
         delete updateData[key];
       }
     });
 
-    // ❌ DO NOT UPDATE viewsLog here — it's handled separately in GET /:id
-    // So remove it from updateData to avoid overwriting
-    delete updateData.viewsLog;
-
+    // Save updated listing
     const updatedListing = await Listing.findByIdAndUpdate(
       req.params.listingId,
       { $set: updateData },
