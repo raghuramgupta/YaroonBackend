@@ -59,7 +59,10 @@ const upload = multer({
       });
     });
   }
-});
+}).fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'videos', maxCount: 5 }
+]);
 
 // Allowed labels
 const allowedLabels = [
