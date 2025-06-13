@@ -53,20 +53,41 @@ router.post('/create', upload.fields([
     }
 
     // ✅ Define newImages and newVideos
-    const newImages = [];
-    const newVideos = [];
+    // Extract new image/video paths from uploads
+const newImages = [];
+const newVideos = [];
 
-    if (req.files?.images) {
-      req.files.images.forEach(file => {
-        newImages.push(`/uploads/${file.filename}`);
-      });
-    }
+if (req.files?.images) {
+  req.files.images.forEach(file => {
+    newImages.push(`/uploads/${file.filename}`);
+  });
+}
 
-    if (req.files?.videos) {
-      req.files.videos.forEach(file => {
-        newVideos.push(`/uploads/${file.filename}`);
-      });
-    }
+if (req.files?.videos) {
+  req.files.videos.forEach(file => {
+    newVideos.push(`/uploads/${file.filename}`);
+  });
+}
+
+let finalImages = [];
+let finalVideos = [];
+
+// If there are existing images from frontend
+if (body.updatedImages) {
+  try {
+    finalImages = JSON.parse(body.updatedImages);
+  } catch (e) {
+    console.error('Invalid updatedImages:', e);
+  }
+}
+
+// If there are new uploads, add them
+finalImages = [...finalImages, ...newImages];
+finalVideos = [...finalVideos, ...newVideos];
+
+// Set final lists
+updateData.images = finalImages.length > 0 ? finalImages : undefined;
+updateData.videos = finalVideos.length > 0 ? finalVideos : undefined;
 
     const newListing = new Listing({
       userKey,
