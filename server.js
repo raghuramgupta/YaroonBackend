@@ -11,7 +11,7 @@ const listingsRouter = require('./routes/listings');
 const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
 const wantedListingRoutes = require('./routes/wantedListings');
-
+const upload = require('./multerConfig');
 // After other middleware and before error handling
 const app = express();
 
@@ -34,6 +34,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('Error connecting to MongoDB:', err));
+
 
 // Mount routes
 app.use('/api/users', userRoutes);

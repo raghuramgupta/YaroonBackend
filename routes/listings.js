@@ -187,6 +187,38 @@ router.put('/:listingId', upload.fields([
   try {
     const body = req.body;
 
+    const {
+      userKey,
+      userType,
+      userinterests,
+      gender,
+      languages,
+      foodchoices,
+      pets,
+      propertyAddress,
+      locality,
+      propertyStructure,
+      roomType,
+      washroomType,
+      parkingType,
+      roomSize,
+      apartmentSize,
+      rent,
+      availableFrom,
+      openDate,
+      securityDepositOption,
+      amenities,
+      cookingType,
+      mapLocation,
+      city,
+      state,
+      country,
+      pinCode,
+      accommodationType,
+      title,
+      description
+    } = body;
+
     let parsedAmenities = {};
     if (typeof amenities === 'string') {
       try {
@@ -196,51 +228,50 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Build updateData with user input
     const updateData = {
-      userKey: body.userKey,
-      userType: body.userType,
-      userinterests: body.userinterests,
-      gender: body.gender,
-      languages: body.languages,
-      foodchoices: body.foodchoices,
-      pets: body.pets,
-      propertyAddress: body.propertyAddress,
-      locality: body.locality,
-      propertyStructure: body.propertyStructure,
-      roomType: body.roomType,
-      washroomType: body.washroomType,
-      parkingType: body.parkingType,
-      roomSize: body.roomSize,
-      apartmentSize: body.apartmentSize,
-      rent: body.rent,
-      securityDepositOption: body.securityDepositOption,
+      userKey,
+      userType,
+      userinterests,
+      gender,
+      languages,
+      foodchoices,
+      pets,
+      propertyAddress,
+      locality,
+      propertyStructure,
+      roomType,
+      washroomType,
+      parkingType,
+      roomSize,
+      apartmentSize,
+      rent,
+      securityDepositOption,
       amenities: parsedAmenities,
-      cookingType: body.cookingType,
-      mapLocation: body.mapLocation,
-      city: body.city,
-      state: body.state,
-      country: body.country,
-      pinCode: body.pinCode,
-      accommodationType: body.accommodationType,
-      title: body.title,
-      description: body.description
+      cookingType,
+      mapLocation,
+      city,
+      state,
+      country,
+      pinCode,
+      accommodationType,
+      title,
+      description
     };
 
-    // Handle date fields safely
-    if (body.availableFrom && body.availableFrom !== 'Invalid date' && body.availableFrom !== 'null') {
-      updateData.availableFrom = new Date(body.availableFrom);
+    // Handle dates
+    if (availableFrom && availableFrom !== 'Invalid date' && availableFrom !== 'null') {
+      updateData.availableFrom = new Date(availableFrom);
     } else {
       updateData.availableFrom = undefined;
     }
 
-    if (body.openDate && body.openDate !== 'Invalid date' && body.openDate !== 'null') {
-      updateData.openDate = new Date(body.openDate);
+    if (openDate && openDate !== 'Invalid date' && openDate !== 'null') {
+      updateData.openDate = new Date(openDate);
     } else {
       updateData.openDate = undefined;
     }
 
-    // ✅ Define these
+    // Process image/video uploads
     const newImages = [];
     const newVideos = [];
 
@@ -258,13 +289,13 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Get existing lists from frontend
     let finalImages = [];
     let finalVideos = [];
 
     if (body.updatedImages) {
       try {
-        finalImages = JSON.parse(body.updatedImages);
+        const oldImages = JSON.parse(body.updatedImages);
+        finalImages = oldImages.filter(img => typeof img === 'string');
       } catch (e) {
         console.error('Invalid updatedImages:', e);
       }
@@ -272,24 +303,28 @@ router.put('/:listingId', upload.fields([
 
     if (body.updatedVideos) {
       try {
-        finalVideos = JSON.parse(body.updatedVideos);
+        const oldVideos = JSON.parse(body.updatedVideos);
+        finalVideos = oldVideos.filter(vid => typeof vid === 'string');
       } catch (e) {
         console.error('Invalid updatedVideos:', e);
       }
     }
 
-    // Combine old and new
     updateData.images = [...finalImages, ...newImages];
     updateData.videos = [...finalVideos, ...newVideos];
 
-    // Remove empty values
+    // Remove empty arrays
+    if (updateData.images.length === 0) delete updateData.images;
+    if (updateData.videos.length === 0) delete updateData.videos;
+
+    // Clean up undefined/null fields
     Object.keys(updateData).forEach(key => {
       if (updateData[key] === undefined || updateData[key] === '') {
         delete updateData[key];
       }
     });
 
-    // Optional: Delete old files from disk
+    // Optional: Delete unused files from disk
     const currentListing = await Listing.findById(req.params.listingId);
 
     if (currentListing) {
@@ -301,19 +336,12 @@ router.put('/:listingId', upload.fields([
 
       [...deletedImages, ...deletedVideos].forEach(filePath => {
         const fullPath = path.join(__dirname, '..', filePath);
-        fs.access(fullPath, fs.constants.F_OK, (err) => {
-          if (err) {
-            console.warn(`File does not exist: ${filePath}`);
-            return;
+        fs.unlink(fullPath, err => {
+          if (err && err.code !== 'ENOENT') {
+            console.error(`Failed to delete file: ${filePath}`, err);
+          } else {
+            console.log(`✅ Deleted file: ${filePath}`);
           }
-
-          fs.unlink(fullPath, (deleteErr) => {
-            if (deleteErr) {
-              console.error(`Failed to delete file: ${filePath}`, deleteErr);
-            } else {
-              console.log(`✅ Deleted file: ${filePath}`);
-            }
-          });
         });
       });
     }
@@ -335,7 +363,6 @@ router.put('/:listingId', upload.fields([
     res.status(500).json({ message: 'Failed to update listing', error: err.message });
   }
 });
-
 /*──────────────────────────  DELETE  ──────────────────────────*/
 router.delete('/:id', async (req, res) => {
   try {
