@@ -51,7 +51,9 @@ router.post('/create', upload.fields([
         parsedAmenities = {};
       }
     }
-
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Valid property image required' });
+    }
     // Extract image/video paths
     const images = [];
     const videos = [];
