@@ -1,4 +1,3 @@
-// routes/listings.js
 const express = require('express');
 const router = express.Router();
 const Listing = require('../models/Listing');
@@ -53,9 +52,9 @@ router.post('/create', upload.fields([
       }
     }
 
-    // Extract image and video paths
-    const images = [];
-    const videos = [];
+    // ✅ Define newImages and newVideos
+    const newImages = [];
+    const newVideos = [];
 
     if (req.files?.images) {
       req.files.images.forEach(file => {
@@ -99,8 +98,8 @@ router.post('/create', upload.fields([
       accommodationType,
       title,
       description,
-      images,
-      videos
+      images: newImages,   // ✅ Now works
+      videos: newVideos    // ✅ Now works
     });
 
     await newListing.save();
@@ -180,8 +179,6 @@ router.get('/:id', async (req, res) => {
 });
 
 /*──────────────────────────  UPDATE  ──────────────────────────*/
-// routes/listings.js
-
 router.put('/:listingId', upload.fields([
   { name: 'images', maxCount: 10 },
   { name: 'videos', maxCount: 5 }
@@ -242,7 +239,7 @@ router.put('/:listingId', upload.fields([
       updateData.openDate = undefined;
     }
 
-    // Extract new image/video paths from uploads
+    // ✅ Define these
     const newImages = [];
     const newVideos = [];
 
@@ -260,45 +257,65 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Use updated media lists sent from frontend
+    // Get existing lists from frontend
     let finalImages = [];
     let finalVideos = [];
 
-    if (newImages.length > 0) {
-      finalImages = [...newImages];
-    }
-
     if (body.updatedImages) {
       try {
-        const oldImages = JSON.parse(body.updatedImages);
-        finalImages = [...oldImages, ...finalImages];
+        finalImages = JSON.parse(body.updatedImages);
       } catch (e) {
         console.error('Invalid updatedImages:', e);
       }
     }
 
-    if (newVideos.length > 0) {
-      finalVideos = [...newVideos];
-    }
-
     if (body.updatedVideos) {
       try {
-        const oldVideos = JSON.parse(body.updatedVideos);
-        finalVideos = [...oldVideos, ...finalVideos];
+        finalVideos = JSON.parse(body.updatedVideos);
       } catch (e) {
         console.error('Invalid updatedVideos:', e);
       }
     }
 
-    updateData.images = finalImages.length > 0 ? finalImages : undefined;
-    updateData.videos = finalVideos.length > 0 ? finalVideos : undefined;
+    // Combine old and new
+    updateData.images = [...finalImages, ...newImages];
+    updateData.videos = [...finalVideos, ...newVideos];
 
-    // Remove any undefined/null fields to prevent casting errors
+    // Remove empty values
     Object.keys(updateData).forEach(key => {
       if (updateData[key] === undefined || updateData[key] === '') {
         delete updateData[key];
       }
     });
+
+    // Optional: Delete old files from disk
+    const currentListing = await Listing.findById(req.params.listingId);
+
+    if (currentListing) {
+      const oldImagePaths = currentListing.images || [];
+      const deletedImages = oldImagePaths.filter(img => !updateData.images?.includes(img));
+
+      const oldVideoPaths = currentListing.videos || [];
+      const deletedVideos = oldVideoPaths.filter(vid => !updateData.videos?.includes(vid));
+
+      [...deletedImages, ...deletedVideos].forEach(filePath => {
+        const fullPath = path.join(__dirname, '..', filePath);
+        fs.access(fullPath, fs.constants.F_OK, (err) => {
+          if (err) {
+            console.warn(`File does not exist: ${filePath}`);
+            return;
+          }
+
+          fs.unlink(fullPath, (deleteErr) => {
+            if (deleteErr) {
+              console.error(`Failed to delete file: ${filePath}`, deleteErr);
+            } else {
+              console.log(`✅ Deleted file: ${filePath}`);
+            }
+          });
+        });
+      });
+    }
 
     // Save updated listing
     const updatedListing = await Listing.findByIdAndUpdate(
@@ -325,6 +342,7 @@ router.delete('/:id', async (req, res) => {
     if (!result) {
       return res.status(404).json({ message: 'Listing not found' });
     }
+
     res.status(200).json({ message: 'Listing deleted' });
   } catch (err) {
     console.error('Error deleting listing:', err);
