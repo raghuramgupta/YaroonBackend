@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "flatbuddy-459009",
+  "private_key_id": "281c910ba369eab295ca52e6cab4885ed1e80e68",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDLd2Mb1unrOiR7\n6QPs1tjc/aBX/JMjanHoyAYCuaViKIwFk2kMKesulq13TqiKLy172j6Rm379KGXU\n5hUsIa4V3QBNVYSeAzVoq4muXxocl7FoD+iHOqKQNAvMgK2Hqa45CtsxaEqJVsP8\nt0/rwA1xdBxoE2MTM+9IkdyqmunS168ISkvary96aUfwWt+f/Gtj+IDw15s+KxvK\n5PbH5LbGrvoKiPKIsn6TP3l0gDWVU9kS7Xyr6OouvqrkZrRBBHuvAPXYtEfJAj04\nk198xS8BmyIXL8z6YccMGXZkKRBBWC0ArKXKw6tLRoVb5dK40ysYsXUxXbzBSTFB\nT/eCIy5jAgMBAAECggEAEGFAHVGj60f2//K2Wi7BrqjMa8jtn4BGQ1M3CKkhY1GY\nVCqV3mDRiiKfPGecseMyajIbr2UxR/gkmosbUT404ZW1HISx9HaVqiOFJgCJ/ZtI\nsPP26EwUIj/OY1xInA9Q806obsXSmlPd2052pKgFbQjH8Kj+5ODddp4ngaSPBmYp\n9ccsB4P2MwV/RwqQngbG6rEvjlzohs3KpOeM4qsZnCsfHRCRVar9k0ZkPAB9tceL\nzAoD0cPghYzIfFr4Fx90wE/EhGyehbXntjwKdT/3gTwb5Peem9J2aKDZ0dyUaOOR\ngY4KcyUkZOzNH1SLil5LboQqrbQRbVDFpmvd+WsgQQKBgQDlhU8iakJpqcKgpOnK\nHEUReoU+UjosDzItj0WBfvwG8qneGUih9bblK27M4ul4Jt6VqEUFzFdlgFIEstnf\nZS31OZFOi4VILFSrWFyjq/b6G1oTpiETm9Z2O2hkZolAXgLYUSuraP2a+qyP9Q9P\nHo6XK0IVZCkWXh8VtZOL+7fGmQKBgQDi8JXC1MScVHNNmcNkrE9GbparQQrz89uN\npCEFYiQQUxxvMkkgVQ2vnZQkl5H/sujcw9mTOHmI4ctDvIrediihQQH0WDD9juCL\nqIXjJw5pofRWZT3oXYWUNRH+pQEiHAHzln0YmhQb3Bdu5LgY6GVKhgGoTJZRT3R+\nLk6MQ2gGWwKBgCwl7kjSY5/rdXJtBkNIGMj55jNMob/j1GULD/WOtW+osZ/1ARGW\nL+344sEqTHo+D8Z9rXkmCxGNEzmwJVRhI+vtfNO85pAxZr/mqTsaUtFc/YCWDfq1\nmRT47GWTi4cEDkwJoPrBoTZ0TUkLfDxdxlOxkG6I65ZP2G7WlGDytDDRAoGBAN9y\nIwMCm9OREzaE/25Qen3OxWs5T5+Dq9l6kUjLqNap/oU97eJ33FHdxc+Bra8maUF1\nVPUv1fqA17KKIfGIRdkAOPxtGU+PLmhUNf/CpN49KGcoqBvyeWPEHUOtE8CR8xn0\nQpfGnaYQvsHhUaK0r4cBCwC66AaHRRw4W/6fH/2hAoGBANdaMtYbXiSEj3ub5px0\n+oEAxGLzwAN6AWanL1U4N/o9Nw2tvk0H7pMWcoTffcR2ntDZBzngTGdaMiorp8mX\nJQADzKOg8PaF1FBXay9jk9EglBxZIKBVIyj2gtN2J3NbqeHxmLZzesaAt6QFIifq\n33N/fwir+97WDXM3ULt41e77\n-----END PRIVATE KEY-----\n",
+  "client_email": "yaaroom@flatbuddy-459009.iam.gserviceaccount.com",
+  "client_id": "116490497766649740949",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/yaaroom%40flatbuddy-459009.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -6,10 +6,10 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const FormData = require('form-data');
+const { ImageAnnotatorClient } = require('@google-cloud/vision').v1;
 
-// Clarifai config
-const CLARIFAI_API_KEY = '6b563204db704c5cba4d121c24aa0a9c';
-const MODEL_ID = 'aaa9d6ee5cf447dd943a32a89512c222f'; // General model ID
+// Initialize the client
+const client = new ImageAnnotatorClient();
 
 // Allowed property-related labels
 const allowedLabels = [
@@ -20,37 +20,24 @@ const allowedLabels = [
 // Helper: Validate image content using Clarifai
 async function isPropertyImage(filePath) {
   try {
-    const form = new FormData();
-    const fileStream = fs.createReadStream(filePath);
+    const [result] = await client.labelDetection(filePath);
+    const labels = result.labelAnnotations.map(label => label.description.toLowerCase());
 
-    form.append('image', fileStream);
-    form.append('model_id', MODEL_ID);
-
-    const response = await axios.post(
-      `https://api.clarifai.com/v2/models/${MODEL_ID}/outputs`, 
-      form,
-      {
-        headers: {
-          'Authorization': `Key ${CLARIFAI_API_KEY}`,
-          ...form.getHeaders()
-        }
-      }
-    );
-
-    const concepts = response.data.outputs[0]?.data?.concepts || [];
-    const labels = concepts.map(c => c.name.toLowerCase());
+    // Define what's allowed
+    const allowedLabels = [
+      'house', 'room', 'apartment', 'flat', 'living room',
+      'kitchen', 'bathroom', 'bedroom', 'interior'
+    ];
 
     const isValid = labels.some(label =>
       allowedLabels.some(allowed => label.includes(allowed))
     );
 
-    console.log('🧠 Clarifai result:', labels);
-    console.log('✅ Is valid property image?', isValid);
-
+    console.log('🧠 Google Vision result:', labels);
     return isValid;
 
   } catch (error) {
-    console.error('Clarifai API error:', error.message);
+    console.error('Google Vision error:', error.message);
     return false;
   }
 }
@@ -102,7 +89,7 @@ router.post('/create', upload.fields([
       description: body.description
     };
 
-    // Handle dates safely
+    // Handle date fields safely
     if (body.availableFrom && body.availableFrom !== 'Invalid date' && body.availableFrom !== 'null') {
       updateData.availableFrom = new Date(body.availableFrom);
     } else {
@@ -115,61 +102,68 @@ router.post('/create', upload.fields([
       updateData.openDate = undefined;
     }
 
-    // Process images
     const tempDir = path.join(__dirname, '..', 'uploads');
     const validImages = [];
+    if (req.files?.images) {
+  console.log('🔍 Received image files:', req.files.images.map(f => ({
+    name: f.originalname,
+    bufferPresent: !!f.buffer,
+    size: f.size,
+    mimetype: f.mimetype
+  })));
+
+  for (const file of req.files.images) {
+    if (!file || !file.buffer) {
+      console.warn('🚫 Invalid file or missing buffer:', file.originalname || 'unknown');
+      continue;
+    }
+
+    // The rest of your logic...
+  }
+} else {
+  console.warn('⚠️ No images received');
+}
 
     if (req.files?.images) {
       for (const file of req.files.images) {
         if (!file || !file.buffer) {
-          console.warn('🚫 Invalid file or missing buffer:', file?.originalname || 'unknown');
+          console.warn('🚫 Invalid file or missing buffer:', file.originalname || 'unknown');
           continue;
         }
-
+        
         const ext = path.extname(file.originalname).toLowerCase();
         const tempPath = path.join(tempDir, `temp-${Date.now()}-${file.originalname}`);
 
-        // Write temp file
-        fs.writeFileSync(tempPath, file.buffer);
+        try {
+          fs.writeFileSync(tempPath, file.buffer);
+        } catch (writeErr) {
+          console.error(`🚨 Failed to write temp file: ${file.originalname}`, writeErr.message);
+          continue;
+        }
 
-        // Validate via Clarifai
         const isValid = await isPropertyImage(tempPath);
+
         if (!isValid) {
           fs.unlinkSync(tempPath); // Remove temp file
           console.warn(`❌ Rejected non-property image: ${file.originalname}`);
           continue;
         }
 
-        // Rename to final location
         const finalFilename = `media-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
         const finalPath = path.join(tempDir, finalFilename);
-        fs.renameSync(tempPath, finalPath);
 
-        validImages.push(`/uploads/${finalFilename}`);
+        try {
+          fs.renameSync(tempPath, finalPath);
+          validImages.push(`/uploads/${finalFilename}`);
+        } catch (renameErr) {
+          console.error(`🚨 Failed to rename file: ${file.originalname}`, renameErr.message);
+          fs.unlinkSync(tempPath); // Clean up temp file
+        }
       }
     }
 
-    // Process videos (no AI validation yet)
-    const validVideos = [];
-
-    if (req.files?.videos) {
-      req.files.videos.forEach(file => {
-        if (!file || !file.buffer) return;
-
-        const ext = path.extname(file.originalname).toLowerCase();
-        const finalFilename = `video-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
-        const finalPath = path.join(tempDir, finalFilename);
-
-        fs.writeFileSync(finalPath, file.buffer);
-        validVideos.push(`/uploads/${finalFilename}`);
-      });
-    }
-
-    // Set final media arrays
     updateData.images = validImages.length > 0 ? validImages : undefined;
-    updateData.videos = validVideos.length > 0 ? validVideos : undefined;
 
-    // Clean up empty values
     Object.keys(updateData).forEach(key => {
       if (updateData[key] === undefined || updateData[key] === '') {
         delete updateData[key];
@@ -186,7 +180,6 @@ router.post('/create', upload.fields([
     res.status(500).json({ message: 'Server error while creating listing' });
   }
 });
-
 /*──────────────────────────  READ ALL  ────────────────────────*/
 router.get('/', async (req, res) => {
   try {
@@ -255,6 +248,7 @@ router.get('/:id', async (req, res) => {
 });
 
 /*──────────────────────────  UPDATE  ──────────────────────────*/
+/*──────────────────────────  UPDATE  ──────────────────────────*/
 router.put('/:listingId', upload.fields([
   { name: 'images', maxCount: 10 },
   { name: 'videos', maxCount: 5 }
@@ -271,7 +265,6 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Build updateData with user input
     const updateData = {
       userKey: body.userKey,
       userType: body.userType,
@@ -302,7 +295,7 @@ router.put('/:listingId', upload.fields([
       description: body.description
     };
 
-    // Handle date fields safely
+    // Sanitize date fields
     if (body.availableFrom && body.availableFrom !== 'Invalid date' && body.availableFrom !== 'null') {
       updateData.availableFrom = new Date(body.availableFrom);
     } else {
@@ -315,7 +308,7 @@ router.put('/:listingId', upload.fields([
       updateData.openDate = undefined;
     }
 
-    // Get existing image/video lists from frontend
+    // Get existing media lists from frontend
     let finalImages = [];
     let finalVideos = [];
 
@@ -335,15 +328,25 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Validate and add new uploads
+    // Process new uploads
     const tempDir = path.join(__dirname, '..', 'uploads');
 
     if (req.files?.images) {
       for (const file of req.files.images) {
-        if (!file || !file.buffer) continue;
+        if (!file || !file.buffer) {
+          console.warn('🚫 Invalid file or missing buffer:', file.originalname || 'unknown');
+          continue;
+        }
 
+        const ext = path.extname(file.originalname).toLowerCase();
         const tempPath = path.join(tempDir, `temp-${file.originalname}`);
-        fs.writeFileSync(tempPath, file.buffer);
+
+        try {
+          fs.writeFileSync(tempPath, file.buffer);
+        } catch (writeErr) {
+          console.error(`🚨 Failed to write temp file: ${file.originalname}`, writeErr.message);
+          continue;
+        }
 
         const isValid = await isPropertyImage(tempPath);
         if (!isValid) {
@@ -352,7 +355,6 @@ router.put('/:listingId', upload.fields([
           continue;
         }
 
-        const ext = path.extname(file.originalname).toLowerCase();
         const finalFilename = `media-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
         const finalPath = path.join(tempDir, finalFilename);
 
@@ -361,7 +363,6 @@ router.put('/:listingId', upload.fields([
       }
     }
 
-    // Add new video uploads directly
     if (req.files?.videos) {
       req.files.videos.forEach(file => {
         const ext = path.extname(file.originalname).toLowerCase();
@@ -373,8 +374,8 @@ router.put('/:listingId', upload.fields([
       });
     }
 
-    updateData.images = finalImages.length > 0 ? finalImages : undefined;
-    updateData.videos = finalVideos.length > 0 ? finalVideos : undefined;
+    updateData.images = finalImages.filter(img => typeof img === 'string');
+    updateData.videos = finalVideos.filter(vid => typeof vid === 'string');
 
     // Remove empty values
     Object.keys(updateData).forEach(key => {
@@ -383,7 +384,7 @@ router.put('/:listingId', upload.fields([
       }
     });
 
-    // Optional: Delete unused files from disk
+    // Optional: Delete old files that were removed
     const currentListing = await Listing.findById(req.params.listingId);
 
     if (currentListing) {
@@ -395,12 +396,19 @@ router.put('/:listingId', upload.fields([
 
       [...deletedImages, ...deletedVideos].forEach(filePath => {
         const fullPath = path.join(__dirname, '..', filePath);
-        fs.unlink(fullPath, (err) => {
-          if (err && err.code !== 'ENOENT') {
-            console.error(`🚨 Failed to delete file: ${filePath}`, err);
-          } else {
-            console.log(`✅ Deleted file: ${filePath}`);
+        fs.access(fullPath, fs.constants.F_OK, (err) => {
+          if (err) {
+            console.warn(`File does not exist: ${filePath}`);
+            return;
           }
+
+          fs.unlink(fullPath, (deleteErr) => {
+            if (deleteErr) {
+              console.error(`🚨 Failed to delete file: ${filePath}`, deleteErr);
+            } else {
+              console.log(`✅ Deleted file: ${filePath}`);
+            }
+          });
         });
       });
     }
@@ -423,7 +431,6 @@ router.put('/:listingId', upload.fields([
     res.status(500).json({ message: 'Failed to update listing', error: err.message });
   }
 });
-
 /*──────────────────────────  DELETE  ──────────────────────────*/
 router.delete('/:id', async (req, res) => {
   try {
