@@ -3,7 +3,47 @@ const router = express.Router();
 const upload = require('./multerConfig');
 const Accommodation = require('../models/Accommodation');
 
+router.post('/', upload.array('media', 10), async (req, res) => {
+  try {
+    const data = JSON.parse(req.body.data);
+    
+    // Process uploaded files
+    const images = req.files.map(file => ({
+      path: file.path, // This should now be defined
+      filename: file.filename,
+      mimetype: file.mimetype
+    }));
 
+    const accommodation = new Accommodation({
+      ...data,
+      images: images
+    });
+
+    await accommodation.save();
+    res.status(201).json(accommodation);
+    
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// Add this new route to get accommodations by user ID
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const accommodations = await Accommodation.find({ owner: req.params.userId });
+    res.json(accommodations);
+  } catch (error) {
+    console.error('Detailed error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Failed to fetch accommodations' });
+  }
+});
 
 // Get all accommodations with filters
 router.get('/', async (req, res) => {

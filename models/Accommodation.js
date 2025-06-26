@@ -91,7 +91,11 @@ const accommodationSchema = new Schema({
     available: Boolean
   }],
   meals: mealOptionSchema,
-  images: [String],
+  images: [{
+    path: String,
+    filename: String,
+    mimetype: String
+  }],
   videos: [String],
   rules: [String],
   contactNumber: {
