@@ -3,34 +3,8 @@ const router = express.Router();
 const upload = require('./multerConfig');
 const Accommodation = require('../models/Accommodation');
 
-router.post('/', upload.array('media', 10), async (req, res) => {
-  try {
-    // Parse JSON data from form
-    const data = JSON.parse(req.body.data);
-    
-    // Get uploaded files
-    const mediaFiles = req.files.map(file => ({
-      path: file.path,
-      filename: file.filename,
-      mimetype: file.mimetype
-    }));
 
-    // Create new accommodation
-    const accommodation = new Accommodation({
-      ...data,
-      images: mediaFiles
-    });
 
-    await accommodation.save();
-    res.status(201).json(accommodation);
-    
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(400).json({ 
-      message: error.message || 'Failed to create accommodation' 
-    });
-  }
-});
 // Get all accommodations with filters
 router.get('/', async (req, res) => {
   try {
