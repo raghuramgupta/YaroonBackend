@@ -1,42 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const Accommodation = require('../models/Accommodation');
 const upload = require('./multerConfig');
+const Accommodation = require('../models/Accommodation');
 
-// Create new accommodation
-router.post('/', async (req, res) => {
+router.post('/', upload.array('media', 10), async (req, res) => {
   try {
-    // Handle the upload first
-    upload(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ message: err });
-      }
+    // Parse JSON data from form
+    const data = JSON.parse(req.body.data);
+    
+    // Get uploaded files
+    const mediaFiles = req.files.map(file => ({
+      path: file.path,
+      filename: file.filename,
+      mimetype: file.mimetype
+    }));
 
-      // Now process the form data
-      const data = JSON.parse(req.body.data);
-      const files = req.files.media; // Access the uploaded files
-
-      // Validate required fields
-      if (!data.title || !data.description || !data.contactNumber) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-
-      // Process your data and save to database...
-      // Example:
-      const newAccommodation = new Accommodation({
-        ...data,
-        images: files ? files.map(file => ({
-          filename: file.filename,
-          path: file.path,
-          mimetype: file.mimetype
-        })) : []
-      });
-
-      await newAccommodation.save();
-      res.status(201).json(newAccommodation);
+    // Create new accommodation
+    const accommodation = new Accommodation({
+      ...data,
+      images: mediaFiles
     });
+
+    await accommodation.save();
+    res.status(201).json(accommodation);
+    
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error:', error);
+    res.status(400).json({ 
+      message: error.message || 'Failed to create accommodation' 
+    });
   }
 });
 // Get all accommodations with filters
