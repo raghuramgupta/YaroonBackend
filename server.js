@@ -7,10 +7,12 @@ const path = require('path');
 const favoritesRouter = require('./routes/favorites');
 const supportTicketRoutes = require('./routes/supportTicket'); // Adjust path as needed
 // Import routes
+
 const listingsRouter = require('./routes/listings');
 const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
 const wantedListingRoutes = require('./routes/wantedListings');
+const accommodationRoutes = require('./routes/accommodations');
 const upload = require('./multerConfig');
 // After other middleware and before error handling
 const app = express();
@@ -39,9 +41,10 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Mount routes
 app.use('/api/users', userRoutes);
 app.use('/api/listings', listingsRouter);  // Fix: Use the correct import for listings
-app.use('/api/messages', messageRoutes);
+app.use('/api/messages', messageRoutes);require('./models/Accommodation');
 // After other middleware and before error handling
 app.use('/api/wanted-listings', wantedListingRoutes);
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.use('/api/accommodations', accommodationRoutes); // New accommodation routes
