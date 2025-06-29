@@ -112,38 +112,86 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update accommodation
+// Update accommodation (FIXED VERSION)
 router.put('/:id', upload.array('media', 10), async (req, res) => {
   try {
-    const { body, files } = req;
+    const data = JSON.parse(req.body.data);
+    const { id } = req.params;
     
-    // Process uploaded files safely
-    const mediaUrls = (files || []).map(file => file.path);
-    const newImages = mediaUrls.filter(url => url && url.match(/\.(jpg|jpeg|png|gif)$/i));
-    const newVideos = mediaUrls.filter(url => url && url.match(/\.(mp4|mov|avi)$/i));
-
-    const accommodation = await Accommodation.findByIdAndUpdate(
-      req.params.id,
-      { 
-        ...body,
-        $push: { 
-          images: { $each: newImages }, 
-          videos: { $each: newVideos } 
-        },
-        updatedAt: Date.now()
-      },
-      { new: true }
-    );
-    
-    if (!accommodation) {
+    // Get existing accommodation
+    const existingAccommodation = await Accommodation.findById(id);
+    if (!existingAccommodation) {
       return res.status(404).json({ error: 'Accommodation not found' });
     }
-    
-    res.json(accommodation);
+
+    // Process new media files
+    const newImages = req.files
+      .filter(file => file.mimetype.startsWith('image/'))
+      .map(file => ({
+        path: file.path,
+        filename: file.filename,
+        mimetype: file.mimetype
+      }));
+
+    const newVideos = req.files
+      .filter(file => file.mimetype.startsWith('video/'))
+      .map(file => ({
+        path: file.path,
+        filename: file.filename,
+        mimetype: file.mimetype
+      }));
+
+    // Handle deleted images
+    if (data.deletedImages && data.deletedImages.length > 0) {
+      // Delete files from server
+      existingAccommodation.images.forEach(img => {
+        if (data.deletedImages.includes(img._id.toString())) {
+          deleteFile(img.path);
+        }
+      });
+      
+      // Remove from array
+      existingAccommodation.images = existingAccommodation.images.filter(
+        img => !data.deletedImages.includes(img._id.toString())
+      );
+    }
+
+    // Handle existing images that should be kept
+    const keptImages = data.existingImages 
+      ? existingAccommodation.images.filter(img => 
+          data.existingImages.includes(img._id.toString()))
+      : existingAccommodation.images;
+
+    // Prepare update data
+    const updateData = {
+      ...data,
+      images: [...keptImages, ...newImages],
+      videos: [...existingAccommodation.videos, ...newVideos],
+      updatedAt: Date.now()
+    };
+
+    // Remove fields that shouldn't be updated directly
+    delete updateData._id;
+    delete updateData.existingImages;
+    delete updateData.deletedImages;
+
+    // Perform the update
+    const updatedAccommodation = await Accommodation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    res.json(updatedAccommodation);
   } catch (error) {
     console.error('Error updating accommodation:', error);
-    res.status(400).json({ error: error.message || 'Failed to update accommodation' });
+    res.status(400).json({ 
+      error: error.message || 'Failed to update accommodation',
+      details: error.errors || null
+    });
   }
 });
+
 
 // Delete accommodation
 router.delete('/:id', async (req, res) => {
