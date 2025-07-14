@@ -13,6 +13,7 @@ const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
 const wantedListingRoutes = require('./routes/wantedListings');
 const accommodationRoutes = require('./routes/accommodations');
+const staffAuth = require('./routes/staffAuth');
 const upload = require('./multerConfig');
 // After other middleware and before error handling
 const app = express();
@@ -37,7 +38,7 @@ mongoose.connect(process.env.MONGODB_URI, {
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('Error connecting to MongoDB:', err));
 
-
+app.use('/api/staff', staffAuth);
 // Mount routes
 app.use('/api/users', userRoutes);
 app.use('/api/listings', listingsRouter);  // Fix: Use the correct import for listings
