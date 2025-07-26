@@ -13,7 +13,7 @@ const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
 const wantedListingRoutes = require('./routes/wantedListings');
 const accommodationRoutes = require('./routes/accommodations');
-const staffAuth = require('./routes/staffAuth');
+const staffAuth = require('./routes/staffAuth');const ticketmanagement = require('./routes/ticketmanagement');
 const upload = require('./multerConfig');
 // After other middleware and before error handling
 const app = express();
@@ -27,6 +27,7 @@ app.use(cors({
   credentials: true
 }));
 app.use('/api/support', supportTicketRoutes); // Support tickets routes
+app.use('/api/ticketmanagement', ticketmanagement); // Support tickets routes
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/favorites', favoritesRouter);

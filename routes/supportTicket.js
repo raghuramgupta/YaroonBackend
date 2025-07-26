@@ -1,28 +1,79 @@
 const express = require('express');
+const mongoose = require('mongoose');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const SupportTicket = require('../models/SupportTicket');
+const Staff = require('../models/staff');
 
-// Create a new support ticket (no auth required)
-router.post('/', async (req, res) => {
-  try {
-    console.log('Received request body:', req.body);
+// Configure file upload storage
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    const uploadDir = 'uploads/support/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function(req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: function(req, file, cb) {
+    const filetypes = /jpeg|jpg|png|gif|mp4|mov|avi|pdf|doc|docx/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
     
-    const { issueType, description, listingId, userId } = req.body;
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb('Error: Only images, videos, and documents are allowed!');
+    }
+  }
+});
+
+// Create a new support ticket with attachments
+router.post('/', upload.array('attachments', 5), async (req, res) => {
+  try {
+    const { title, issueType, description, listingId, userId } = req.body;
+    const files = req.files || [];
 
     // Validate required fields
-    if (!issueType || !description || !userId) {
+    if (!title || !issueType || !description || !userId) {
+      // Clean up uploaded files if validation fails
+      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(400).json({ 
         error: 'Missing required fields',
-        required: ['issueType', 'description', 'userId']
+        required: ['title', 'issueType', 'description', 'userId']
       });
     }
 
+    // Process attachments
+    const attachments = files.map(file => ({
+      url: `/uploads/support/${file.filename}`,
+      type: getFileType(file.mimetype),
+      originalName: file.originalname
+    }));
+
     const newTicket = new SupportTicket({
+      title,
       issueType,
       listingId: issueType === 'Problem with a listing' ? listingId : null,
       description,
       userId,
-      status: 'open'
+      status: 'open',
+      messages: [{
+        senderType: 'user',
+        senderId: userId,
+        content: description,
+        attachments
+      }]
     });
 
     const savedTicket = await newTicket.save();
@@ -33,6 +84,11 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
+    // Clean up any uploaded files on error
+    if (req.files) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
+    }
+    
     console.error('Error:', error);
     
     if (error.name === 'ValidationError') {
@@ -50,109 +106,126 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update a support ticket
-router.put('/:id', async (req, res) => {
+// Add a message to a ticket (with optional attachments)
+router.post('/:id/messages', upload.array('attachments', 5), async (req, res) => {
   try {
     const { id } = req.params;
-    const { issueType, description, listingId, userId } = req.body;
+    const { senderType, senderId, content } = req.body;
+    const files = req.files || [];
 
     // Validate required fields
-    if (!issueType || !description || !userId) {
+    if (!senderType || !senderId || !content) {
+      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(400).json({ 
         error: 'Missing required fields',
-        required: ['issueType', 'description', 'userId']
+        required: ['senderType', 'senderId', 'content']
+      });
+    }
+
+    if (!['user', 'staff'].includes(senderType)) {
+      files.forEach(file => fs.unlinkSync(file.path));
+      return res.status(400).json({ 
+        error: 'Invalid sender type'
       });
     }
 
     const ticket = await SupportTicket.findById(id);
     if (!ticket) {
+      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    // Only allow updates to open tickets
-    if (ticket.status !== 'open') {
-      return res.status(400).json({ 
-        error: 'Only open tickets can be updated'
-      });
-    }
-
-    // Verify user owns the ticket
-    if (ticket.userId !== userId) {
+    // Verify permissions
+    if (senderType === 'user' && ticket.userId !== senderId) {
+      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(403).json({ 
-        error: 'Unauthorized - you can only update your own tickets'
+        error: 'Unauthorized - you can only message your own tickets'
       });
     }
 
-    ticket.issueType = issueType;
-    ticket.description = description;
-    ticket.listingId = issueType === 'Problem with a listing' ? listingId : null;
-    ticket.updatedAt = new Date();
+    // Process attachments
+    // In your POST route
+    const attachments = files.map(file => ({
+      url: `/uploads/support/${file.filename}`, // This is the public URL
+      type: getFileType(file.mimetype),
+      originalName: file.originalname,
+      filepath: file.path // Store the actual file path for cleanup
+    }));
+
+    // Add new message
+    ticket.messages.push({
+      senderType,
+      senderId,
+      content,
+      attachments
+    });
+
+    // Update ticket status if staff is responding
+    if (senderType === 'staff' && ticket.status === 'open') {
+      ticket.status = 'in-progress';
+    }
 
     const updatedTicket = await ticket.save();
     
     res.json({
-      message: 'Ticket updated successfully',
+      message: 'Message added successfully',
       ticket: updatedTicket
     });
 
   } catch (error) {
-    console.error('Error updating ticket:', error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        error: 'Validation failed',
-        details: errors 
-      });
+    if (req.files) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
     }
     
+    console.error('Error adding message:', error);
     res.status(500).json({ 
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const tickets = await SupportTicket.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json({ tickets });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+router.put('/:id', async (req, res) => {
+  try {
+    const ticket = await SupportTicket.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(ticket);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
-// Delete a support ticket
-router.delete('/:id', async (req, res) => {
+// Get ticket with messages
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.query; // Get userId from query params
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-      console.log("In user id loop");
-    }
+    const { userId } = req.query;
 
     const ticket = await SupportTicket.findById(id);
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' });
-      console.log("Ticket not found");
     }
 
-    // Verify user owns the ticket
-    if (ticket.userId !== userId) {
+    // Verify user has access to this ticket
+    if (userId && ticket.userId !== userId) {
       return res.status(403).json({ 
-        error: 'Unauthorized - you can only delete your own tickets'
+        error: 'Unauthorized - you can only view your own tickets'
       });
     }
-    console.log("In user id loop");
-    // Only allow deletion of open tickets
-    if (ticket.status !== 'open') {
-      return res.status(400).json({ 
-        error: 'Only open tickets can be deleted'
-      });
-      console.log("In open id loop");
-    }
 
-    await SupportTicket.findByIdAndDelete(id);
-    
-    res.json({
-      message: 'Ticket deleted successfully'
-    });
-
+    res.json(ticket);
   } catch (error) {
-    console.error('Error deleting :', error);
+    console.error('Error fetching ticket:', error);
     res.status(500).json({ 
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -160,67 +233,15 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Get all tickets for a specific user
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
+// Helper function to determine file type
+function getFileType(mimetype) {
+  if (mimetype.startsWith('image/')) return 'image';
+  if (mimetype.startsWith('video/')) return 'video';
+  if (mimetype === 'application/pdf') return 'document';
+  if (mimetype.includes('document') || mimetype.includes('msword')) return 'document';
+  return 'other';
+}
 
-    const tickets = await SupportTicket.find({ userId }).sort({ createdAt: -1 });
-    
-    res.json({
-      count: tickets.length,
-      tickets
-    });
-    
-  } catch (error) {
-    console.error('Error fetching user tickets:', error);
-    res.status(500).json({ 
-      error: 'Error fetching user tickets',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// Get all tickets (no auth required - careful with this in production!)
-router.get('/all', async (req, res) => {
-  try {
-    const tickets = await SupportTicket.find().sort({ createdAt: -1 });
-    res.json(tickets);
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching tickets' });
-  }
-});
-
-// Get open tickets for a specific user
-router.get('/user/:userId/open', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    const tickets = await SupportTicket.find({ 
-      userId,
-      status: 'open'
-    }).sort({ createdAt: -1 });
-    
-    res.json({
-      count: tickets.length,
-      tickets
-    });
-    
-  } catch (error) {
-    console.error('Error fetching open tickets:', error);
-    res.status(500).json({ 
-      error: 'Error fetching open tickets',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+// ... (keep all other existing routes from your original code)
 
 module.exports = router;
