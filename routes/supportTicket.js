@@ -192,19 +192,129 @@ router.get('/user/:userId', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-router.put('/:id', async (req, res) => {
+// PUT /api/support/:ticketId - Update a ticket
+router.put('/:ticketId', upload.any(), async (req, res) => {
   try {
-    const ticket = await SupportTicket.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    res.json(ticket);
+    const ticketId = req.params.ticketId;
+    const formData = req.body || {};
+    
+    // Validate ticket exists
+    const ticket = await SupportTicket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Update fields if they exist in the request
+    if (formData.status !== undefined) ticket.status = formData.status;
+    if (formData.notes !== undefined) ticket.assignmentNotes = formData.notes;
+    
+    // Handle assignment
+    if (formData.assignedTo !== undefined) {
+      if (formData.assignedTo && formData.assignedTo !== '') {
+        const staff = await Staff.findById(formData.assignedTo);
+        if (!staff) {
+          return res.status(400).json({ error: 'Staff member not found' });
+        }
+        ticket.assignedTo = formData.assignedTo;
+      } else {
+        ticket.assignedTo = null;
+      }
+    }
+
+    // Handle new message - with proper sender information
+    if (formData.messageContent) {
+      const newMessage = {
+        content: formData.messageContent,
+        timestamp: new Date(),
+        senderId: req.user?._id || ticket.assignedTo || null, // Fallback to assignedTo if no user
+        senderType: req.user?._id ? 'staff' : 'user' // Adjust based on your auth system
+      };
+      ticket.messages.push(newMessage);
+    }
+
+    // Handle file attachments
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        ticket.attachments.push({
+          filename: file.originalname,
+          path: file.path,
+          mimetype: file.mimetype
+        });
+      });
+    }
+
+    const updatedTicket = await ticket.save();
+    await updatedTicket.populate('assignedTo', 'name email role');
+    
+    res.json({ 
+      message: 'Ticket updated successfully',
+      ticket: updatedTicket 
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error updating ticket:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error updating ticket',
+      details: error.errors // Send validation errors to frontend
+    });
   }
 });
+router.get('/all', async (req, res) => {
+  try {
+    const tickets = await SupportTicket.find().sort({ createdAt: -1 });
+    res.json(tickets);
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+// Assign ticket to staff member
+router.put('/:id/assign', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { staffId } = req.body;
 
+    // Validate inputs
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(staffId)) {
+      return res.status(400).json({ error: 'Invalid staff ID' });
+    }
+
+    // Find the ticket and staff member
+    const ticket = await SupportTicket.findById(id);
+    const staff = await Staff.findById(staffId);
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    if (!staff) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+
+    // Update the ticket
+    ticket.assignedTo = staffId;
+    if (ticket.status === 'open') {
+      ticket.status = 'in-progress';
+    }
+
+    const updatedTicket = await ticket.save();
+
+    res.json({
+      message: 'Ticket assigned successfully',
+      ticket: updatedTicket
+    });
+
+  } catch (error) {
+    console.error('Assignment error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 // Get ticket with messages
 router.get('/:id', async (req, res) => {
   try {
